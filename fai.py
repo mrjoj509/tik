@@ -1,9 +1,9 @@
 import requests
 import time
-import uuid
 import random
 import secrets
 import SignerPy
+
 
 class TikTokFlow:
     def __init__(self, username):
@@ -107,7 +107,7 @@ class TikTokFlow:
         return None, None
 
     # ============================================
-    # 2. Login باستخدام التكت
+    # 2. Login + DEBUG كامل
     # ============================================
     def login_with_ticket(self, ticket):
         for host in self.hosts:
@@ -139,13 +139,31 @@ class TikTokFlow:
             url = f"https://{host}/passport/user/login_by_passport_ticket/"
 
             try:
+                print("\n====================")
+                print(f"[DEBUG] HOST: {host}")
+                print("[DEBUG] PARAMS:", params)
+                print("[DEBUG] HEADERS:", headers)
+                print("====================\n")
+
                 r = self.session.post(url, params=params, headers=headers, timeout=10)
-                j = r.json()
 
-                print(f"[LOGIN {host}] ->", j)
+                print("\n====== RESPONSE ======")
+                print("Status Code:", r.status_code)
+                print("Response Headers:", dict(r.headers))
 
-                if j.get("message") == "success":
-                    return j
+                try:
+                    print("JSON:", r.json())
+                except:
+                    print("Text:", r.text[:2000])
+
+                print("======================\n")
+
+                try:
+                    j = r.json()
+                    if j.get("message") == "success":
+                        return j
+                except:
+                    pass
 
             except Exception as e:
                 print("Login error:", e)
