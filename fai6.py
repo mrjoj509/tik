@@ -84,6 +84,7 @@ class TikTokAPI:
             "content-type": "application/x-www-form-urlencoded"
         }
 
+        # 🔥 التوقيع
         sig = SignerPy.sign(params=params)
         headers.update({
             "x-ss-req-ticket": sig.get("x-ss-req-ticket", ""),
@@ -94,20 +95,10 @@ class TikTokAPI:
         })
 
         url = f"https://{self.host}/passport/account_lookup/username/"
-
-        # 🔥 PRINT REQUEST
-        print("\n========== LOOKUP REQUEST ==========")
-        print("URL:", url)
-        print("PARAMS:", params)
-        print("HEADERS:", headers)
-
         r = self.session.post(url, params=params, headers=headers)
 
-        # 🔥 PRINT RESPONSE
-        print("\n========== LOOKUP RESPONSE ==========")
-        print("Status:", r.status_code)
-        print("Headers:", dict(r.headers))
-        print("Body:", r.text)
+        print("\n[LOOKUP]")
+        print(r.text)
 
         try:
             return r.json()["data"]["accounts"][0]["passport_ticket"]
@@ -197,17 +188,26 @@ class TikTokAPI:
         })
 
         url = f"https://{self.host}/passport/user/login_by_passport_ticket/"
-
-        # 🔥 PRINT REQUEST
-        print("\n========== LOGIN REQUEST ==========")
-        print("URL:", url)
-        print("PARAMS:", params)
-        print("HEADERS:", headers)
-
         r = self.session.post(url, params=params, headers=headers)
 
-        # 🔥 PRINT RESPONSE
-        print("\n========== LOGIN RESPONSE ==========")
-        print("Status:", r.status_code)
-        print("Headers:", dict(r.headers))
-        print("Body:", r.text)
+        print("\n[LOGIN]")
+        print(r.text)
+
+
+# =========================
+# RUN
+# =========================
+if __name__ == "__main__":
+    user = input("username: ")
+
+    api = TikTokAPI()
+
+    ticket = api.lookup(user)
+
+    if not ticket:
+        print("❌ فشل lookup")
+        exit()
+
+    print("✅ ticket:", ticket)
+
+    api.login(ticket)
