@@ -84,7 +84,6 @@ class TikTokAPI:
             "content-type": "application/x-www-form-urlencoded"
         }
 
-        # 🔥 التوقيع
         sig = SignerPy.sign(params=params)
         headers.update({
             "x-ss-req-ticket": sig.get("x-ss-req-ticket", ""),
@@ -97,8 +96,14 @@ class TikTokAPI:
         url = f"https://{self.host}/passport/account_lookup/username/"
         r = self.session.post(url, params=params, headers=headers)
 
-        print("\n[LOOKUP]")
-        print(r.text)
+        print("\n========== LOOKUP ==========")
+        print("STATUS:", r.status_code)
+        print("HEADERS:", dict(r.headers))
+
+        try:
+            print("JSON:", r.json())
+        except:
+            print("TEXT:", r.text)
 
         try:
             return r.json()["data"]["accounts"][0]["passport_ticket"]
@@ -190,8 +195,14 @@ class TikTokAPI:
         url = f"https://{self.host}/passport/user/login_by_passport_ticket/"
         r = self.session.post(url, params=params, headers=headers)
 
-        print("\n[LOGIN]")
-        print(r.text)
+        print("\n========== LOGIN ==========")
+        print("STATUS:", r.status_code)
+        print("HEADERS:", dict(r.headers))
+
+        try:
+            print("JSON:", r.json())
+        except:
+            print("TEXT:", r.text)
 
 
 # =========================
