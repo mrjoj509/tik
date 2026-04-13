@@ -44,10 +44,9 @@ class TikTokFlow:
             'app_language': 'ar',
             'timezone_offset': '10800',
             'request_tag_from': 'h5',
-            'account_param': self.username.encode().hex(),  # ✅ مهم
+            'account_param': self.username,  # ✅ نفس كودك بدون تغيير
             'scene': '4',
-            'mix_mode': '1',
-            'fixed_mix_mode': '1'
+            'mix_mode': '1'
         }
 
         self.headers = {
@@ -55,9 +54,9 @@ class TikTokFlow:
         }
 
     # ============================================
-    # توقيع جاهز
+    # توقيع (نفس طريقتك)
     # ============================================
-    def build_signed_headers(self, params):
+    def build_headers(self, params):
         sig = SignerPy.sign(params=params)
 
         headers = self.headers.copy()
@@ -73,7 +72,7 @@ class TikTokFlow:
         return headers
 
     # ============================================
-    # 1. account_lookup
+    # 1. Lookup (بدون لمس)
     # ============================================
     def get_ticket(self):
         for host in self.hosts:
@@ -84,7 +83,7 @@ class TikTokFlow:
             params['_rticket'] = int(ts * 1000)
 
             try:
-                headers = self.build_signed_headers(params)
+                headers = self.build_headers(params)
                 headers['x-tt-passport-csrf-token'] = secrets.token_hex(16)
 
                 url = f"https://{host}/passport/account_lookup/username/"
@@ -124,7 +123,7 @@ class TikTokFlow:
             params["target"] = "recover_account"
 
             try:
-                headers = self.build_signed_headers(params)
+                headers = self.build_headers(params)
 
                 url = f"https://{host}/passport/shark/safe_verify/"
                 r = self.session.get(url, params=params, headers=headers, timeout=10)
@@ -153,7 +152,7 @@ class TikTokFlow:
             params["not_login_ticket"] = ticket
 
             try:
-                headers = self.build_signed_headers(params)
+                headers = self.build_headers(params)
 
                 url = f"https://{host}/passport/auth/available_ways/"
                 r = self.session.get(url, params=params, headers=headers, timeout=10)
