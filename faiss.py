@@ -17,233 +17,203 @@ class TikTokFlow:
         ]
 
         self.params = {
-            "device_platform": "android",
-            "ssmix": "a",
-            "channel": "googleplay",
-            "aid": "1233",
-            "app_name": "musical_ly",
-            "version_code": "370805",
-            "version_name": "37.8.5",
-            "manifest_version_code": "2023708050",
-            "update_version_code": "2023708050",
-            "ab_version": "37.8.5",
-            "os_version": "10",
-            "device_type": "SM-G998B",
-            "resolution": "1600*900",
-            "dpi": "240",
-            "language": "ar",
-            "os_api": "29",
-            "ac": "wifi",
-            "timezone_name": "Asia/Riyadh",
-            "carrier_region": "SA",
-            "sys_region": "SA",
-            "region": "SA",
-            "app_language": "ar",
-            "timezone_offset": "10800",
-            "request_tag_from": "h5",
-            "account_param": self.username,
-            "scene": "4",
-            "mix_mode": "1",
-            "device_id": str(random.randint(10**18, 10**19-1)),
-            "iid": str(random.randint(10**18, 10**19-1)),
-            "openudid": secrets.token_hex(8),
+            'device_platform': 'android',
+            'ssmix': 'a',
+            'channel': 'googleplay',
+            'aid': '1233',
+            'app_name': 'musical_ly',
+            'version_code': '370805',
+            'version_name': '37.8.5',
+            'manifest_version_code': '2023708050',
+            'update_version_code': '2023708050',
+            'ab_version': '37.8.5',
+            'os_version': '10',
+            'device_type': f'rk{random.randint(3000,4000)}',
+            'device_id': str(random.randint(10**18, 10**19-1)),
+            'iid': str(random.randint(10**18, 10**19-1)),
+            'openudid': secrets.token_hex(8),
+            'resolution': '1600*900',
+            'dpi': '240',
+            'language': 'ar',
+            'os_api': '29',
+            'ac': 'wifi',
+            'timezone_name': 'Asia/Riyadh',
+            'carrier_region': 'SA',
+            'sys_region': 'SA',
+            'region': 'SA',
+            'app_language': 'ar',
+            'timezone_offset': '10800',
+            'request_tag_from': 'h5',
+            'account_param': self.username,
+            'scene': '4',
+            'mix_mode': '1'
         }
 
-        self.headers_base = {
-            "User-Agent": f"com.zhiliaoapp.musically/{self.params['manifest_version_code']} (Linux; Android 10)"
+        self.headers = {
+            'User-Agent': f'com.zhiliaoapp.musically/{self.params["manifest_version_code"]} (Linux; Android 10)'
         }
 
-    # =========================
-    # SIGN WRAPPER
-    # =========================
-    def sign(self, params):
-        ts = int(time.time())
-        params["ts"] = ts
-        params["_rticket"] = int(ts * 1000)
-        return SignerPy.sign(params=params)
+    def build_headers(self, params):
+        sig = SignerPy.sign(params=params)
+
+        headers = self.headers.copy()
+        headers.update({
+            'x-ss-req-ticket': sig.get('x-ss-req-ticket', ''),
+            'x-ss-stub': sig.get('x-ss-stub', ''),
+            'x-argus': sig.get('x-argus', ''),
+            'x-gorgon': sig.get('x-gorgon', ''),
+            'x-khronos': sig.get('x-khronos', ''),
+            'x-ladon': sig.get('x-ladon', ''),
+        })
+
+        return headers
 
     # =========================
-    # 1. ACCOUNT LOOKUP
+    # 1. LOOKUP
     # =========================
     def get_ticket(self):
         for host in self.hosts:
             params = self.params.copy()
 
-            try:
-                sig = self.sign(params)
-            except Exception as e:
-                print("sign error:", e)
-                continue
-
-            headers = self.headers_base.copy()
-            headers.update(sig)
-
-            url = f"https://{host}/passport/account_lookup/username/"
+            ts = int(time.time())
+            params['ts'] = ts
+            params['_rticket'] = int(ts * 1000)
 
             try:
+                headers = self.build_headers(params)
+                headers['x-tt-passport-csrf-token'] = secrets.token_hex(16)
+
+                url = f"https://{host}/passport/account_lookup/username/"
                 r = self.session.post(url, params=params, headers=headers, timeout=10)
-                j = r.json()
 
-                print("[LOOKUP]", j)
+                j = r.json()
+                print(f"[LOOKUP {host}] ->", j)
 
                 accounts = j.get("data", {}).get("accounts", [])
                 if not accounts:
                     continue
 
                 acc = accounts[0]
+                ticket = acc.get("passport_ticket") or acc.get("not_login_ticket")
 
-                return {
-                    "passport_ticket": acc.get("passport_ticket"),
-                    "not_login_ticket": acc.get("not_login_ticket"),
-                    "username": acc.get("username")
-                }
+                if ticket:
+                    return ticket
 
             except Exception as e:
-                print("lookup error:", e)
+                print("Lookup error:", e)
 
         return None
 
     # =========================
-    # 2. SAFE VERIFY (OPTIONAL STEP)
+    # 2. SAFE VERIFY
     # =========================
     def safe_verify(self, ticket):
         for host in self.hosts:
             params = self.params.copy()
+
+            ts = int(time.time())
+            params['ts'] = ts
+            params['_rticket'] = int(ts * 1000)
+
             params.pop("account_param", None)
             params["not_login_ticket"] = ticket
             params["target"] = "recover_account"
 
             try:
-                sig = self.sign(params)
-            except:
-                continue
+                headers = self.build_headers(params)
 
-            headers = self.headers_base.copy()
-            headers.update(sig)
-
-            url = f"https://{host}/passport/shark/safe_verify/"
-
-            try:
+                url = f"https://{host}/passport/shark/safe_verify/"
                 r = self.session.get(url, params=params, headers=headers, timeout=10)
-                j = r.json()
 
-                print("[SAFE VERIFY]", j)
+                print(f"[SAFE {host}] ->", r.text)
 
-                return j
+                return True
 
             except Exception as e:
-                print("safe error:", e)
+                print("Safe error:", e)
 
-        return None
+        return False
 
     # =========================
-    # 3. AVAILABLE WAYS (INFO ONLY)
+    # 3. AVAILABLE WAYS
     # =========================
     def available_ways(self, ticket):
         for host in self.hosts:
             params = self.params.copy()
+
+            ts = int(time.time())
+            params['ts'] = ts
+            params['_rticket'] = int(ts * 1000)
+
             params.pop("account_param", None)
-            params["ticket"] = ticket
+            params["not_login_ticket"] = ticket
 
             try:
-                sig = self.sign(params)
-            except:
-                continue
+                headers = self.build_headers(params)
 
-            headers = self.headers_base.copy()
-            headers.update(sig)
-
-            url = f"https://{host}/passport/auth/available_ways/"
-
-            try:
+                url = f"https://{host}/passport/auth/available_ways/"
                 r = self.session.get(url, params=params, headers=headers, timeout=10)
-                j = r.json()
 
-                print("[AVAILABLE WAYS]", j)
-                return j
+                print(f"[WAYS {host}] ->", r.text)
+
+                return r.text
 
             except Exception as e:
-                print("available error:", e)
+                print("Ways error:", e)
 
         return None
 
     # =========================
-    # 4. LOGIN CORE
+    # 4. LOGIN (آخر خطوة)
     # =========================
-    def login(self, ticket_obj):
-        ticket = ticket_obj.get("passport_ticket") or ticket_obj.get("not_login_ticket")
-
-        # 🔥 main login
-        result = self._login(ticket)
-
-        # 🔥 extra analytics only (no effect on flow)
-        self.available_ways(ticket)
-
-        if result:
-            return result
-
-        # optional safe step
-        safe = self.safe_verify(ticket)
-        if safe:
-            new_ticket = safe.get("data", {}).get("ticket")
-            if new_ticket:
-                return self._login(new_ticket)
-
-        return None
-
-    # =========================
-    # LOGIN REQUEST
-    # =========================
-    def _login(self, ticket):
-        if not ticket:
-            return None
-
+    def login_by_ticket(self, ticket):
         for host in self.hosts:
             params = self.params.copy()
+
+            ts = int(time.time())
+            params['ts'] = ts
+            params['_rticket'] = int(ts * 1000)
+
             params.pop("account_param", None)
             params["passport_ticket"] = ticket
 
             try:
-                sig = self.sign(params)
-            except:
-                continue
+                headers = self.build_headers(params)
 
-            headers = self.headers_base.copy()
-            headers.update(sig)
-
-            url = f"https://{host}/passport/user/login_by_passport_ticket/"
-
-            try:
+                url = f"https://{host}/passport/user/login_by_passport_ticket/"
                 r = self.session.post(url, params=params, headers=headers, timeout=10)
-                j = r.json()
 
-                print("[LOGIN]", j)
+                print(f"[LOGIN {host}] ->", r.text)
 
-                if j.get("message") == "success":
-                    return j
+                return r.text
 
             except Exception as e:
-                print("login error:", e)
+                print("Login error:", e)
 
         return None
 
 
 # =========================
-# RUN
+# تشغيل
 # =========================
 if __name__ == "__main__":
     user = input("Enter username: ")
 
     flow = TikTokFlow(user)
 
-    tickets = flow.get_ticket()
+    ticket = flow.get_ticket()
 
-    if not tickets:
-        print("no ticket")
+    if not ticket:
+        print("❌ ما حصلنا ticket")
         exit()
 
-    print("tickets:", tickets)
+    print("🎫 Ticket:", ticket)
 
-    result = flow.login(tickets)
+    flow.safe_verify(ticket)
+    flow.available_ways(ticket)
 
-    print("\nFINAL:", result)
+    # 🔥 آخر خطوة
+    result = flow.login_by_ticket(ticket)
+
+    print("\n🔥 FINAL LOGIN RESULT:")
+    print(result)
