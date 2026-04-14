@@ -3,7 +3,6 @@ import time
 import random
 import secrets
 import SignerPy
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 class TikTokFlow:
@@ -17,7 +16,6 @@ class TikTokFlow:
             "https": f"http://{proxy}"
         }
 
-        # 🔥 الهوستات (كما هي بدون أي حذف)
         self.hosts = [
             "api16-core-aion-useast5.us.tiktokv.com","api16-core-apix-quic.tiktokv.com",
             "api16-core-apix.tiktokv.com","api16-core-baseline.tiktokv.com",
@@ -86,21 +84,14 @@ class TikTokFlow:
         }
 
         self.headers = {
-            'User-Agent': f'com.zhiliaoapp.musically/{self.base_params["manifest_version_code"]} (Linux; Android 10)'
+            'User-Agent': f'com.zhiliaoapp.musically/{self.base_params["manifest_version_code"]}'
         }
 
     def build_headers(self, params):
         sig = SignerPy.sign(params=params)
-        h = self.headers.copy()
-        h.update({
-            'x-ss-req-ticket': sig.get('x-ss-req-ticket',''),
-            'x-ss-stub': sig.get('x-ss-stub',''),
-            'x-argus': sig.get('x-argus',''),
-            'x-gorgon': sig.get('x-gorgon',''),
-            'x-khronos': sig.get('x-khronos',''),
-            'x-ladon': sig.get('x-ladon',''),
-        })
-        return h
+        headers = self.headers.copy()
+        headers.update(sig)
+        return headers
 
     def fresh_params(self):
         p = self.base_params.copy()
@@ -109,59 +100,45 @@ class TikTokFlow:
         p['_rticket'] = int(ts * 1000)
         return p
 
-    # =========================
-    # LOOKUP FAST
-    # =========================
-    def _lookup(self, host):
-        try:
-            params = self.fresh_params()
-            params["account_param"] = self.username
-
-            headers = self.build_headers(params)
-            headers['x-tt-passport-csrf-token'] = secrets.token_hex(16)
-
-            r = self.session.post(
-                f"https://{host}/passport/account_lookup/username/",
-                params=params,
-                headers=headers,
-                proxies=self.proxy_dict,
-                timeout=5
-            )
-
-            j = r.json()
-            acc = j.get("data", {}).get("accounts", [])
-
-            if acc:
-                a = acc[0]
-                return host, a.get("passport_ticket") or a.get("not_login_ticket"), a.get("oauth_login_only", False)
-
-        except:
-            return None
-
+    # ================= LOOKUP (ONLY SUCCESS) =================
     def get_ticket(self):
-        with ThreadPoolExecutor(max_workers=25) as ex:
-            futures = [ex.submit(self._lookup, h) for h in self.hosts]
+        for host in self.hosts:
+            try:
+                params = self.fresh_params()
+                params["account_param"] = self.username
 
-            for f in as_completed(futures):
-                res = f.result()
-                if res:
-                    host, ticket, oauth = res
-                    print(f"\n🔥 LOOKUP HIT -> {host}")
+                headers = self.build_headers(params)
+                headers['x-tt-passport-csrf-token'] = secrets.token_hex(16)
+
+                r = self.session.post(
+                    f"https://{host}/passport/account_lookup/username/",
+                    params=params, headers=headers,
+                    proxies=self.proxy_dict, timeout=5
+                )
+
+                j = r.json()
+                acc = j.get("data", {}).get("accounts", [])
+
+                if acc:
+                    a = acc[0]
+
+                    ticket = a.get("passport_ticket") or a.get("not_login_ticket")
+                    oauth = a.get("oauth_login_only", False)
+
+                    print("\n🔥 LOOKUP HIT ->", host)
+                    print("🎫 Ticket:", ticket)
+                    print("🔐 AUTH:", oauth)
+
                     return ticket, oauth
+
+            except:
+                continue
 
         return None, None
 
-    # =========================
-    # SAFE
-    # =========================
+    # ================= SAFE (ONLY SUCCESS) =================
     def safe(self, ticket):
-        result = False
-
-        def run(host):
-            nonlocal result
-            if result:
-                return
-
+        for host in self.hosts:
             try:
                 params = self.fresh_params()
                 params["not_login_ticket"] = ticket
@@ -176,23 +153,17 @@ class TikTokFlow:
                 )
 
                 if '"error_code":2029' in r.text:
-                    result = True
+                    print("\n🔥 SAFE HIT ->", host)
+                    return True
+
             except:
-                pass
+                continue
 
-        with ThreadPoolExecutor(max_workers=25) as ex:
-            list(ex.map(run, self.hosts))
+        return False
 
-        return result
-
-    # =========================
-    # AUTH
-    # =========================
+    # ================= AUTH (ONLY SUCCESS) =================
     def auth(self, ticket):
-        result = False
-
-        def run(host):
-            nonlocal result
+        for host in self.hosts:
             try:
                 params = self.fresh_params()
                 params["not_login_ticket"] = ticket
@@ -206,23 +177,18 @@ class TikTokFlow:
                 )
 
                 if '"message":"success"' in r.text:
-                    result = True
+                    print("\n🔥 AUTH HIT ->", host)
+                    print("BODY:", r.text)
+                    return True
+
             except:
-                pass
+                continue
 
-        with ThreadPoolExecutor(max_workers=25) as ex:
-            list(ex.map(run, self.hosts))
+        return False
 
-        return result
-
-    # =========================
-    # LOGIN
-    # =========================
+    # ================= LOGIN (HEADERS ONLY) =================
     def login(self, ticket):
-        result = False
-
-        def run(host):
-            nonlocal result
+        for host in self.hosts:
             try:
                 params = self.fresh_params()
                 params["passport_ticket"] = ticket
@@ -236,14 +202,14 @@ class TikTokFlow:
                 )
 
                 if '"error_code":2135' in r.text:
-                    result = True
+                    print("\n🔥 LOGIN HIT ->", host)
+                    print("RESPONSE HEADERS:", dict(r.headers))
+                    return True
+
             except:
-                pass
+                continue
 
-        with ThreadPoolExecutor(max_workers=25) as ex:
-            list(ex.map(run, self.hosts))
-
-        return result
+        return False
 
 
 if __name__ == "__main__":
@@ -253,11 +219,8 @@ if __name__ == "__main__":
     ticket, oauth = flow.get_ticket()
 
     if not ticket:
-        print("❌ مافيه تكت")
+        print("❌ no ticket")
         exit()
-
-    print("🎫 Ticket:", ticket)
-    print("🔐 AUTH:", oauth)
 
     if not oauth:
         flow.login(ticket)
