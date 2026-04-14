@@ -84,13 +84,20 @@ class TikTokFlow:
         }
 
         self.headers = {
-            'User-Agent': f'com.zhiliaoapp.musically/{self.base_params["manifest_version_code"]}'
+            'User-Agent': f'com.zhiliaoapp.musically/{self.base_params["manifest_version_code"]} (Linux; Android 10)'
         }
 
     def build_headers(self, params):
         sig = SignerPy.sign(params=params)
         headers = self.headers.copy()
-        headers.update(sig)
+        headers.update({
+            'x-ss-req-ticket': sig.get('x-ss-req-ticket',''),
+            'x-ss-stub': sig.get('x-ss-stub',''),
+            'x-argus': sig.get('x-argus',''),
+            'x-gorgon': sig.get('x-gorgon',''),
+            'x-khronos': sig.get('x-khronos',''),
+            'x-ladon': sig.get('x-ladon',''),
+        })
         return headers
 
     def fresh_params(self):
@@ -100,7 +107,7 @@ class TikTokFlow:
         p['_rticket'] = int(ts * 1000)
         return p
 
-    # ================= LOOKUP (ONLY SUCCESS) =================
+    # ========= LOOKUP =========
     def get_ticket(self):
         for host in self.hosts:
             try:
@@ -120,12 +127,14 @@ class TikTokFlow:
                 acc = j.get("data", {}).get("accounts", [])
 
                 if acc:
-                    a = acc[0]
+                    acc = acc[0]
+                    ticket = acc.get("passport_ticket") or acc.get("not_login_ticket")
+                    oauth = acc.get("oauth_login_only", False)
 
-                    ticket = a.get("passport_ticket") or a.get("not_login_ticket")
-                    oauth = a.get("oauth_login_only", False)
-
-                    print("\n🔥 LOOKUP HIT ->", host)
+                    print("\n🔥 LOOKUP SUCCESS")
+                    print("Host:", host)
+                    print("Status:", r.status_code)
+                    print("Body:", r.text[:1000])
                     print("🎫 Ticket:", ticket)
                     print("🔐 AUTH:", oauth)
 
@@ -136,7 +145,7 @@ class TikTokFlow:
 
         return None, None
 
-    # ================= SAFE (ONLY SUCCESS) =================
+    # ========= SAFE =========
     def safe(self, ticket):
         for host in self.hosts:
             try:
@@ -153,7 +162,9 @@ class TikTokFlow:
                 )
 
                 if '"error_code":2029' in r.text:
-                    print("\n🔥 SAFE HIT ->", host)
+                    print("\n🔥 SAFE SUCCESS")
+                    print("Host:", host)
+                    print(r.text)
                     return True
 
             except:
@@ -161,7 +172,7 @@ class TikTokFlow:
 
         return False
 
-    # ================= AUTH (ONLY SUCCESS) =================
+    # ========= AUTH =========
     def auth(self, ticket):
         for host in self.hosts:
             try:
@@ -177,8 +188,9 @@ class TikTokFlow:
                 )
 
                 if '"message":"success"' in r.text:
-                    print("\n🔥 AUTH HIT ->", host)
-                    print("BODY:", r.text)
+                    print("\n🔥 AUTH SUCCESS")
+                    print("Host:", host)
+                    print(r.text)
                     return True
 
             except:
@@ -186,7 +198,7 @@ class TikTokFlow:
 
         return False
 
-    # ================= LOGIN (HEADERS ONLY) =================
+    # ========= LOGIN =========
     def login(self, ticket):
         for host in self.hosts:
             try:
@@ -202,8 +214,9 @@ class TikTokFlow:
                 )
 
                 if '"error_code":2135' in r.text:
-                    print("\n🔥 LOGIN HIT ->", host)
-                    print("RESPONSE HEADERS:", dict(r.headers))
+                    print("\n🔥 LOGIN RESPONSE HEADERS")
+                    print("Host:", host)
+                    print(dict(r.headers))
                     return True
 
             except:
@@ -219,8 +232,12 @@ if __name__ == "__main__":
     ticket, oauth = flow.get_ticket()
 
     if not ticket:
-        print("❌ no ticket")
+        print("❌ مافيه تكت")
         exit()
+
+    print("\n🎫 FINAL RESULT")
+    print("Ticket:", ticket)
+    print("AUTH:", oauth)
 
     if not oauth:
         flow.login(ticket)
